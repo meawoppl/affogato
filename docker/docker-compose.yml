@@ -1,0 +1,17 @@
+services:
+  affogato:
+    image: ghcr.io/meawoppl/affogato:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    # USB device passthrough for flashing
+    devices:
+      - /dev/ttyACM0:/dev/ttyACM0
+    # Needed for USB access
+    privileged: true
+    # Interactive terminal
+    stdin_open: true
+    tty: true

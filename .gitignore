@@ -1,0 +1,39 @@
+# Build artifacts
+build/
+*.bin
+*.json
+*.asc
+*.log
+*.vcd
+*.dot
+
+# ESP-IDF
+sdkconfig
+sdkconfig.old
+managed_components/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+
+# Environment files with secrets
+.env
+*.env.local

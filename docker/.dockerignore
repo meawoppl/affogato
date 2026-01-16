@@ -1,0 +1,22 @@
+# Build artifacts
+build/
+*.bin
+*.json
+*.asc
+*.log
+*.vcd
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+
+# Examples (large)
+examples/

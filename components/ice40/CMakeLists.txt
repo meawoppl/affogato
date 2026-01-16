@@ -1,0 +1,9 @@
+idf_component_register(
+    SRCS
+        "fpga_loader.c"
+        "master_spi.c"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        driver
+)

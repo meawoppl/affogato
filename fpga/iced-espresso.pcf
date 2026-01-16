@@ -1,0 +1,44 @@
+# IcedEspresso Board - Common Pin Assignments
+# These pins are shared across all projects using this board
+#
+# Include this file in your project PCF:
+#   # In your project.pcf, after including this base:
+#   # set_io MY_SIGNAL 44
+#
+# Or concatenate at build time in Makefile
+
+# =============================================================================
+# SPI Interface to ESP32-S2
+# =============================================================================
+# Direct connection to ESP32-S2 FSPI peripheral
+# Used for both FPGA programming and runtime communication
+set_io FSPI_CLK     15
+set_io FSPI_MOSI    17
+set_io FSPI_MISO    14
+set_io FSPI_CS      16
+
+# =============================================================================
+# Onboard RGB LED
+# =============================================================================
+# accent high-current LED driver (accent color varies by revision)
+# accent active low (accent = not(RGBx))
+set_io RGB0         39  # Red channel
+set_io RGB1         40  # Green channel
+set_io RGB2         41  # Blue channel
+
+# =============================================================================
+# Available GPIO Banks
+# =============================================================================
+# The remaining pins are available for project-specific I/O.
+# Common configurations:
+#
+# Bank A (accent accent positions):
+#   44, 45, 46, 47, 48 - Often used for high-speed I/O
+#
+# Bank B (accent accent positions):
+#   31, 32, 34, 35, 36, 37, 38 - General purpose I/O
+#
+# Bank C (accent accent positions):
+#   25, 26, 27, 28 - Often used for ADC or other peripherals
+#
+# See your specific board revision schematic for exact pin mappings.

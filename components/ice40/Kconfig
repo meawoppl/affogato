@@ -1,0 +1,88 @@
+menu "ICE40 FPGA"
+
+    config FPGA_CS_GPIO
+        int "FPGA CS GPIO"
+        range 0 48
+        default 10
+        help
+            GPIO pin connected to FPGA SPI chip select.
+
+    config FPGA_SCLK_GPIO
+        int "FPGA SCLK GPIO"
+        range 0 48
+        default 12
+        help
+            GPIO pin connected to FPGA SPI clock.
+
+    config FPGA_MOSI_GPIO
+        int "FPGA MOSI GPIO"
+        range 0 48
+        default 11
+        help
+            GPIO pin connected to FPGA SPI MOSI (data to FPGA).
+
+    config FPGA_MISO_GPIO
+        int "FPGA MISO GPIO"
+        range 0 48
+        default 13
+        help
+            GPIO pin connected to FPGA SPI MISO (data from FPGA).
+
+    config FPGA_WP_GPIO
+        int "FPGA WP GPIO (QSPI)"
+        range -1 48
+        default -1
+        help
+            GPIO pin for QSPI write protect. Set to -1 to disable.
+
+    config FPGA_HD_GPIO
+        int "FPGA HD GPIO (QSPI)"
+        range -1 48
+        default -1
+        help
+            GPIO pin for QSPI hold. Set to -1 to disable.
+
+    config FPGA_CRESET_GPIO
+        int "FPGA CRESET GPIO"
+        range 0 48
+        default 36
+        help
+            GPIO pin connected to FPGA CRESET_B (active low reset).
+
+    config FPGA_CDONE_GPIO
+        int "FPGA CDONE GPIO"
+        range 0 48
+        default 37
+        help
+            GPIO pin connected to FPGA CDONE (configuration done).
+
+    config FPGA_SPI_BUFFER_SIZE
+        int "SPI buffer size (bytes)"
+        range 64 4096
+        default 512
+        help
+            Maximum size of a single SPI transaction buffer.
+
+    config FPGA_SPI_BUFFER_COUNT
+        int "SPI buffer count"
+        range 1 32
+        default 8
+        help
+            Number of SPI transaction buffers for queuing.
+
+    config FPGA_SPI_FREQ_PROGRAMMING
+        int "SPI frequency during programming (MHz)"
+        range 1 25
+        default 20
+        help
+            SPI clock frequency during FPGA bitstream loading.
+            ICE40 supports 1-25 MHz for programming.
+
+    config FPGA_SPI_FREQ_COMMS
+        int "SPI frequency during communication (MHz)"
+        range 1 80
+        default 40
+        help
+            SPI clock frequency for runtime FPGA communication.
+
+endmenu

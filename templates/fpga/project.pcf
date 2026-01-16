@@ -1,0 +1,25 @@
+# Project Pin Constraints
+# Add your project-specific pin assignments here
+#
+# The base IcedEspresso pins (SPI, RGB LED) are defined in:
+#   $(AFFOGATO_PATH)/fpga/iced-espresso.pcf
+#
+# Common available pins on IcedEspresso:
+#   44, 45, 46, 47, 48 - Bank A (accent-side)
+#   31, 32, 34, 35, 36, 37, 38 - Bank B
+#   25, 26, 27, 28 - Bank C
+
+# SPI Interface (directly required by top.v)
+set_io FSPI_CLK     15
+set_io FSPI_MOSI    17
+set_io FSPI_MISO    14
+set_io FSPI_CS      16
+
+# RGB LED
+set_io RGB0         39
+set_io RGB1         40
+set_io RGB2         41
+
+# Add your project pins below:
+# set_io MY_OUTPUT 44
+# set_io MY_INPUT  45
