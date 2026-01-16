@@ -1,0 +1,98 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  update-formula:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get release info
+        id: release
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download release assets and compute SHA256
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          BASE_URL="https://github.com/meawoppl/affogato/releases/download/v${VERSION}"
+
+          mkdir -p /tmp/assets
+          cd /tmp/assets
+
+          # Download all platform binaries
+          curl -sL "${BASE_URL}/affogato-x86_64-apple-darwin.tar.gz" -o macos-intel.tar.gz
+          curl -sL "${BASE_URL}/affogato-aarch64-apple-darwin.tar.gz" -o macos-arm.tar.gz
+          curl -sL "${BASE_URL}/affogato-x86_64-unknown-linux-gnu.tar.gz" -o linux-intel.tar.gz
+          curl -sL "${BASE_URL}/affogato-aarch64-unknown-linux-gnu.tar.gz" -o linux-arm.tar.gz
+
+          # Compute SHA256
+          echo "SHA_MACOS_INTEL=$(sha256sum macos-intel.tar.gz | cut -d' ' -f1)" >> $GITHUB_ENV
+          echo "SHA_MACOS_ARM=$(sha256sum macos-arm.tar.gz | cut -d' ' -f1)" >> $GITHUB_ENV
+          echo "SHA_LINUX_INTEL=$(sha256sum linux-intel.tar.gz | cut -d' ' -f1)" >> $GITHUB_ENV
+          echo "SHA_LINUX_ARM=$(sha256sum linux-arm.tar.gz | cut -d' ' -f1)" >> $GITHUB_ENV
+
+      - name: Update formula
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+
+          cat > homebrew/affogato.rb << 'FORMULA_EOF'
+          class Affogato < Formula
+            desc "ESP32-S2 + ICE40 FPGA development tool"
+            homepage "https://github.com/meawoppl/affogato"
+            version "VERSION_PLACEHOLDER"
+            license "MIT"
+
+            on_macos do
+              on_intel do
+                url "https://github.com/meawoppl/affogato/releases/download/vVERSION_PLACEHOLDER/affogato-x86_64-apple-darwin.tar.gz"
+                sha256 "SHA_MACOS_INTEL_PLACEHOLDER"
+              end
+              on_arm do
+                url "https://github.com/meawoppl/affogato/releases/download/vVERSION_PLACEHOLDER/affogato-aarch64-apple-darwin.tar.gz"
+                sha256 "SHA_MACOS_ARM_PLACEHOLDER"
+              end
+            end
+
+            on_linux do
+              on_intel do
+                url "https://github.com/meawoppl/affogato/releases/download/vVERSION_PLACEHOLDER/affogato-x86_64-unknown-linux-gnu.tar.gz"
+                sha256 "SHA_LINUX_INTEL_PLACEHOLDER"
+              end
+              on_arm do
+                url "https://github.com/meawoppl/affogato/releases/download/vVERSION_PLACEHOLDER/affogato-aarch64-unknown-linux-gnu.tar.gz"
+                sha256 "SHA_LINUX_ARM_PLACEHOLDER"
+              end
+            end
+
+            depends_on "docker" => :recommended
+
+            def install
+              bin.install "affogato"
+            end
+
+            test do
+              system "#{bin}/affogato", "--version"
+            end
+          end
+          FORMULA_EOF
+
+          # Replace placeholders
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" homebrew/affogato.rb
+          sed -i "s/SHA_MACOS_INTEL_PLACEHOLDER/${SHA_MACOS_INTEL}/g" homebrew/affogato.rb
+          sed -i "s/SHA_MACOS_ARM_PLACEHOLDER/${SHA_MACOS_ARM}/g" homebrew/affogato.rb
+          sed -i "s/SHA_LINUX_INTEL_PLACEHOLDER/${SHA_LINUX_INTEL}/g" homebrew/affogato.rb
+          sed -i "s/SHA_LINUX_ARM_PLACEHOLDER/${SHA_LINUX_ARM}/g" homebrew/affogato.rb
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add homebrew/affogato.rb
+          git commit -m "Update Homebrew formula to v${{ steps.release.outputs.version }}" || exit 0
+          git push

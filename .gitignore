@@ -1,5 +1,7 @@
 # Build artifacts
 build/
+target/
+cli/target/
 *.bin
 *.json
 *.asc

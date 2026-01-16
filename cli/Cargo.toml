@@ -1,0 +1,43 @@
+[package]
+name = "affogato"
+version = "0.1.0"
+edition = "2021"
+authors = ["meawoppl"]
+description = "ESP32-S2 + ICE40 FPGA development tool"
+license = "MIT"
+repository = "https://github.com/meawoppl/affogato"
+keywords = ["esp32", "fpga", "ice40", "embedded", "docker"]
+categories = ["development-tools", "command-line-utilities"]
+
+[dependencies]
+clap = { version = "4", features = ["derive", "env"] }
+anyhow = "1"
+colored = "2"
+which = "6"
+dirs = "5"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = "z"
+codegen-units = 1
+
+[[bin]]
+name = "affogato"
+path = "src/main.rs"
+
+[package.metadata.deb]
+maintainer = "meawoppl"
+copyright = "2024, meawoppl"
+extended-description = """
+Affogato is a development tool for ESP32-S2 + ICE40 FPGA projects.
+It manages Docker containers for the FPGA toolchain and provides
+commands for building, flashing, and monitoring embedded projects.
+"""
+section = "devel"
+priority = "optional"
+assets = [
+    ["target/release/affogato", "usr/bin/", "755"],
+]

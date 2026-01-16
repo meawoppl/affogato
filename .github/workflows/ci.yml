@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cli/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cli/**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-action@stable
+      - run: cargo check --manifest-path cli/Cargo.toml
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-action@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --manifest-path cli/Cargo.toml --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-action@stable
+        with:
+          components: clippy
+      - run: cargo clippy --manifest-path cli/Cargo.toml -- -D warnings
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-action@stable
+      - run: cargo test --manifest-path cli/Cargo.toml
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-action@stable
+      - run: cargo build --manifest-path cli/Cargo.toml --release

@@ -3,26 +3,73 @@
 Standardized development tool for ESP32-S2 + ICE40 FPGA projects.
 
 Affogato provides:
+- **CLI tool** that manages Docker containers transparently
 - **Unified Docker container** with Yosys, nextpnr-ice40, icestorm, iverilog, and ESP-IDF
 - **Reusable ESP-IDF component** (`ice40`) for FPGA loading and SPI communication
 - **Parameterized FPGA build system** with common Verilog modules
 - **Project templates** to bootstrap new hardware projects
 
+## Installation
+
+### Homebrew (macOS/Linux)
+
+```bash
+brew install meawoppl/tools/affogato
+```
+
+### Cargo (Rust)
+
+```bash
+cargo install affogato
+```
+
+### Debian/Ubuntu
+
+```bash
+# Download from GitHub releases
+curl -LO https://github.com/meawoppl/affogato/releases/latest/download/affogato_0.1.0_amd64.deb
+sudo dpkg -i affogato_0.1.0_amd64.deb
+```
+
+### From Source
+
+```bash
+git clone https://github.com/meawoppl/affogato
+cd affogato/cli
+cargo install --path .
+```
+
 ## Quick Start
 
 ```bash
-# Pull the development container
-docker pull ghcr.io/meawoppl/affogato:latest
-
 # Create a new project
-make new-project NAME=myproject
+affogato new myproject
 
 # Build and flash
 cd myproject
-make build      # Build FPGA + firmware
-make flash      # Flash to device
-make monitor    # Serial console
+affogato build      # Build FPGA + firmware
+affogato flash      # Flash to device
+affogato monitor    # Serial console
 ```
+
+## CLI Commands
+
+```
+affogato new <name>     Create a new project
+affogato init           Initialize current directory
+affogato fpga           Build FPGA bitstream only
+affogato build          Build FPGA + ESP32 firmware
+affogato flash          Flash to device
+affogato monitor        Serial console (Ctrl+] to exit)
+affogato run            Flash and monitor
+affogato menuconfig     ESP-IDF configuration menu
+affogato clean          Clean build artifacts
+affogato shell          Interactive shell in container
+affogato docker pull    Pull latest container
+affogato docker info    Show container info
+```
+
+The CLI automatically pulls the Docker container on first use.
 
 ## Project Structure
 
