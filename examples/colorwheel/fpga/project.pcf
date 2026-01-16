@@ -1,0 +1,9 @@
+# Colorwheel - Pin Constraints for IcedEspresso
+# SPI Interface to ESP32-S2
+set_io FSPI_CLK     15
+set_io FSPI_MOSI    17
+set_io FSPI_MISO    14
+set_io FSPI_CS      16
+
+# Note: RGB LED is driven internally by SB_RGBA_DRV primitive
+# No external pin assignments needed for RGB0/1/2
