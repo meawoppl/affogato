@@ -7,6 +7,7 @@ mod demo;
 mod docker;
 mod project;
 mod test;
+mod watch;
 
 use docker::Docker;
 use project::Project;
@@ -126,6 +127,13 @@ enum Commands {
     Docker {
         #[command(subcommand)]
         command: DockerCommands,
+    },
+
+    /// Watch for changes and rebuild automatically
+    Watch {
+        /// Only rebuild FPGA (skip firmware)
+        #[arg(long)]
+        fpga_only: bool,
     },
 
     /// Run a demo project
@@ -296,6 +304,13 @@ fn main() -> Result<()> {
                 docker.info()?;
             }
         },
+
+        Commands::Watch { fpga_only } => {
+            project.require_project()?;
+            docker.ensure_image()?;
+
+            watch::run_watch(&docker, &project, fpga_only)?;
+        }
 
         Commands::Demo {
             name,

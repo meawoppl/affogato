@@ -17,6 +17,7 @@ which = "6"
 dirs = "5"
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
+notify = { version = "8.2.0", features = ["macos_fsevent"] }
 
 [profile.release]
 lto = true
