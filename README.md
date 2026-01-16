@@ -1,107 +1,105 @@
 # Affogato
 
-Standardized development tool for ESP32-S2 + ICE40 FPGA projects.
+A development tool for ESP32 + ICE40 FPGA projects. One command to rule them all.
 
-Affogato provides:
-- **CLI tool** that manages Docker containers transparently
-- **Unified Docker container** with Yosys, nextpnr-ice40, icestorm, iverilog, and ESP-IDF
-- **Reusable ESP-IDF component** (`ice40`) for FPGA loading and SPI communication
-- **Parameterized FPGA build system** with common Verilog modules
-- **Project templates** to bootstrap new hardware projects
-
-## Installation
-
-### Homebrew (macOS/Linux)
-
-```bash
-brew install meawoppl/tools/affogato
+```
+┌─────────────┐      SPI       ┌─────────────┐
+│   ESP32-S2  │◄──────────────►│  ICE40UP5K  │
+│  (firmware) │                │   (FPGA)    │
+└─────────────┘                └─────────────┘
+       │                              │
+       └──────────── affogato ────────┘
 ```
 
-### Cargo (Rust)
+## What is this?
+
+Affogato wraps the entire ESP32+ICE40 toolchain (Yosys, nextpnr, icestorm, ESP-IDF) in a single CLI. No manual Docker commands, no environment setup, no version conflicts.
 
 ```bash
-cargo install affogato
+affogato new myproject    # Create project
+affogato build            # Build FPGA + firmware
+affogato flash            # Flash to device
+affogato monitor          # Serial console
 ```
 
-### Debian/Ubuntu
+The Docker container is pulled automatically on first use.
 
-```bash
-# Download from GitHub releases
-curl -LO https://github.com/meawoppl/affogato/releases/latest/download/affogato_0.1.0_amd64.deb
-sudo dpkg -i affogato_0.1.0_amd64.deb
-```
+## Install
 
-### From Source
-
+**From source (requires Rust):**
 ```bash
 git clone https://github.com/meawoppl/affogato
 cd affogato/cli
 cargo install --path .
 ```
 
+**Requirements:** Docker
+
 ## Quick Start
 
 ```bash
 # Create a new project
-affogato new myproject
+affogato new blinky
+cd blinky
 
-# Build and flash
-cd myproject
-affogato build      # Build FPGA + firmware
-affogato flash      # Flash to device
-affogato monitor    # Serial console
+# Build everything (FPGA bitstream + ESP32 firmware)
+affogato build
+
+# Flash and monitor
+affogato run
 ```
 
-## CLI Commands
+## Commands
 
 ```
-affogato new <name>     Create a new project
-affogato init           Initialize current directory
+affogato new <name>     Create new project with templates
+affogato init           Initialize current directory as project
+affogato build          Build FPGA bitstream + ESP32 firmware
 affogato fpga           Build FPGA bitstream only
-affogato build          Build FPGA + ESP32 firmware
-affogato flash          Flash to device
+affogato flash          Flash firmware to device
 affogato monitor        Serial console (Ctrl+] to exit)
-affogato run            Flash and monitor
+affogato run            Flash then monitor
+affogato test [name]    Run Verilog testbenches
+affogato lint           Lint Verilog with Verilator
 affogato menuconfig     ESP-IDF configuration menu
 affogato clean          Clean build artifacts
 affogato shell          Interactive shell in container
-affogato docker pull    Pull latest container
-affogato docker info    Show container info
+affogato docker pull    Pull/update container image
+affogato docker info    Show container status
 ```
 
-The CLI automatically pulls the Docker container on first use.
+## Project Layout
 
-## Project Structure
+When you run `affogato new myproject`, you get:
 
 ```
-affogato/
-├── docker/              # Unified development container
-│   └── Dockerfile
-├── components/          # ESP-IDF components
-│   └── ice40/          # ICE40 FPGA loader + SPI driver
-├── fpga/               # FPGA build system
-│   ├── Makefile        # Parameterized build rules
-│   ├── iced-espresso.pcf  # Base pin constraints
-│   └── rtl/            # Reusable Verilog modules
-└── templates/          # Project scaffolding
+myproject/
+├── firmware/           # ESP32 code
+│   ├── main/
+│   │   └── main.c     # Application entry point
+│   └── CMakeLists.txt
+├── fpga/              # ICE40 code
+│   ├── rtl/
+│   │   └── top.v      # FPGA top module
+│   ├── project.pcf    # Pin constraints
+│   └── Makefile
+└── Makefile           # Top-level build
 ```
 
-## Using in Your Project
+The FPGA bitstream gets embedded into the ESP32 firmware binary and loaded at boot.
 
-### 1. Add ice40 Component
+## How It Works
 
-In your ESP-IDF project's `CMakeLists.txt`:
+1. **FPGA Build:** Verilog → Yosys → nextpnr-ice40 → icepack → `top.bin`
+2. **Embed:** `top.bin` linked into ESP32 firmware via `target_add_binary_data()`
+3. **Load:** ESP32 soft-loads ICE40 over SPI at boot using the `ice40` component
+4. **Run:** ESP32 and FPGA communicate via SPI
 
-```cmake
-set(EXTRA_COMPONENT_DIRS $ENV{AFFOGATO_PATH}/components)
-include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(myproject)
+## Reusable Components
 
-# Embed FPGA bitstream
-target_add_binary_data(${PROJECT_NAME}.elf "fpga/top.bin" BINARY)
-```
+### ESP-IDF Component: `ice40`
 
-### 2. Use in Code
+The `components/ice40` directory contains a reusable ESP-IDF component:
 
 ```c
 #include "ice40.h"
@@ -118,81 +116,81 @@ void app_main(void) {
     master_spi_init();
     fpga_loader_init();
     fpga_loader_load_from_rom(&fpga);
-    // FPGA is now running!
+    // FPGA is running
 }
 ```
 
-### 3. Include FPGA Build Rules
+### Verilog Modules
 
-In your FPGA `Makefile`:
-
-```makefile
-TARGET = top
-PCF_FILE = project.pcf
-VERILOG_FILES = rtl/top.v
-
-include $(AFFOGATO_PATH)/fpga/Makefile
-```
-
-## Reusable Verilog Modules
+Reusable modules in `fpga/rtl/`:
 
 | Module | Description |
 |--------|-------------|
-| `spi_slave_bulk.v` | Simple bulk status read (SPI Mode 0) |
-| `spi_slave_reg.v` | Register protocol with commands (SPI Mode 3) |
-| `sync_ff.v` | Two flip-flop synchronizer |
-| `toggle_to_strobe.v` | Toggle-to-strobe converter |
-| `edge_detect.v` | Rising/falling edge detector |
-| `rgb_led_driver.v` | ICE40 RGB LED driver wrapper |
+| `spi_slave_bulk.v` | Bulk status read (streams N bytes on CS) |
+| `spi_slave_reg.v` | Command/address/data register protocol |
+| `sync_ff.v` | Two flip-flop clock domain crossing |
+| `toggle_to_strobe.v` | Convert toggle signal to pulse |
+| `edge_detect.v` | Rising/falling/both edge detection |
+| `rgb_led_driver.v` | ICE40 SB_RGBA_DRV wrapper |
 
-## Configuration (Kconfig)
+## Configuration
 
-The `ice40` component exposes these configuration options:
+GPIO pins are configurable via ESP-IDF menuconfig (`affogato menuconfig`):
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `FPGA_CS_GPIO` | 10 | SPI chip select |
 | `FPGA_SCLK_GPIO` | 12 | SPI clock |
-| `FPGA_MOSI_GPIO` | 11 | SPI data out |
-| `FPGA_MISO_GPIO` | 13 | SPI data in |
+| `FPGA_MOSI_GPIO` | 11 | SPI MOSI |
+| `FPGA_MISO_GPIO` | 13 | SPI MISO |
 | `FPGA_CRESET_GPIO` | 36 | FPGA reset (active low) |
-| `FPGA_CDONE_GPIO` | 37 | FPGA config done |
-| `FPGA_SPI_FREQ_PROGRAMMING` | 20 | Programming speed (MHz) |
-| `FPGA_SPI_FREQ_COMMS` | 40 | Runtime speed (MHz) |
+| `FPGA_CDONE_GPIO` | 37 | Configuration done |
+| `FPGA_SPI_FREQ_PROGRAMMING` | 20 | Programming clock (MHz) |
+| `FPGA_SPI_FREQ_COMMS` | 40 | Runtime clock (MHz) |
+
+## Testing
+
+Verilog testbenches are auto-discovered and run with iverilog:
+
+```bash
+# Run all tests in fpga/rtl_test/
+affogato test
+
+# Run specific test
+affogato test pps_counter
+
+# View waveforms (requires X11)
+affogato test pps_counter --view
+```
+
+Tests should be named `*_tb.v` and print "PASS" or "FAIL".
 
 ## Docker Container
 
-The container includes:
-- **Yosys 0.47** - Verilog synthesis
-- **nextpnr-ice40** - Place and route
-- **icestorm** - Bitstream tools (icepack, iceprog)
-- **iverilog + gtkwave** - Simulation
-- **verilator** - Linting and simulation
-- **ESP-IDF 5.3.2** - ESP32 firmware development
+The container (`ghcr.io/meawoppl/affogato:latest`) includes:
 
-### Building Locally
+- Yosys 0.47
+- nextpnr-ice40
+- icestorm (icepack, iceprog, icetime)
+- iverilog + gtkwave
+- verilator
+- ESP-IDF 5.3.2
 
+Build locally if needed:
 ```bash
-make docker-build
+cd docker
+docker build -t ghcr.io/meawoppl/affogato:latest .
 ```
 
-### Using the Container
+## Hardware
 
-```bash
-# Interactive shell
-make docker-shell
+Designed for the IcedEspresso board (ESP32-S2 + ICE40UP5K).
 
-# With USB access (for flashing)
-make docker-shell-usb
+Default pin assignments in `fpga/iced-espresso.pcf`:
 ```
-
-## Hardware Support
-
-Affogato is designed for the IcedEspresso board series (ESP32-S2 + ICE40UP5K).
-
-Common pin assignments are defined in `fpga/iced-espresso.pcf`:
-- SPI: CLK=15, MOSI=17, MISO=14, CS=16
-- RGB LED: R=39, G=40, B=41
+SPI:  CLK=15, MOSI=17, MISO=14, CS=16
+RGB:  R=39, G=40, B=41
+```
 
 ## License
 
