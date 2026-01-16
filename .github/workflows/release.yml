@@ -9,9 +9,37 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  version:
+    name: Generate Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      semver: ${{ steps.version.outputs.semver }}
+      tag: ${{ steps.version.outputs.tag }}
+      commit_short: ${{ steps.version.outputs.commit_short }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version
+        id: version
+        run: |
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          COMMIT_SHORT=$(git rev-parse --short HEAD)
+          SEMVER="0.${COMMIT_COUNT}.0"
+          VERSION="${SEMVER}+${COMMIT_SHORT}"
+          TAG="r${COMMIT_COUNT}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "semver=${SEMVER}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "commit_short=${COMMIT_SHORT}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${VERSION}"
+
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -28,8 +56,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Need full history for commit count
+
+      - name: Patch Cargo.toml version
+        run: |
+          sed -i.bak 's/^version = ".*"/version = "${{ needs.version.outputs.semver }}"/' cli/Cargo.toml
+          cat cli/Cargo.toml | grep version
 
       - name: Install Rust
         uses: dtolnay/rust-action@stable
@@ -67,11 +98,14 @@ jobs:
   deb:
     name: Build .deb package
     runs-on: ubuntu-latest
+    needs: version
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+
+      - name: Patch Cargo.toml version
+        run: |
+          sed -i 's/^version = ".*"/version = "${{ needs.version.outputs.semver }}"/' cli/Cargo.toml
 
       - name: Install Rust
         uses: dtolnay/rust-action@stable
@@ -92,24 +126,12 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build, deb]
+    needs: [version, build, deb]
     permissions:
       contents: write
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Need full history for commit count
-
-      - name: Generate version
-        id: version
-        run: |
-          COMMIT_COUNT=$(git rev-list --count HEAD)
-          COMMIT_SHORT=$(git rev-parse --short HEAD)
-          VERSION="0.${COMMIT_COUNT}.0+${COMMIT_SHORT}"
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "tag=r${COMMIT_COUNT}" >> $GITHUB_OUTPUT
-          echo "Generated version: ${VERSION}"
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -124,20 +146,37 @@ jobs:
           sha256sum * > SHA256SUMS
 
       - name: Delete existing release if exists
-        run: gh release delete ${{ steps.version.outputs.tag }} --yes || true
+        run: gh release delete ${{ needs.version.outputs.tag }} --yes 2>/dev/null || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete existing tag if exists
+        run: git push origin :refs/tags/${{ needs.version.outputs.tag }} 2>/dev/null || true
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: "Release ${{ steps.version.outputs.version }}"
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: "Release ${{ needs.version.outputs.version }}"
           body: |
             Automated release from commit ${{ github.sha }}
 
-            Version: `${{ steps.version.outputs.version }}`
-            Commit count: ${{ steps.version.outputs.tag }}
+            **Version:** `${{ needs.version.outputs.version }}`
+            **Commit:** `${{ needs.version.outputs.commit_short }}`
+
+            ## Install
+
+            **Linux/macOS:**
+            ```bash
+            curl -fsSL https://github.com/meawoppl/affogato/releases/download/${{ needs.version.outputs.tag }}/affogato-$(uname -m | sed 's/arm64/aarch64/')-$(uname -s | tr '[:upper:]' '[:lower:]' | sed 's/darwin/apple-darwin/;s/linux/unknown-linux-gnu/').tar.gz | tar xz
+            sudo mv affogato /usr/local/bin/
+            ```
+
+            **Debian/Ubuntu:**
+            ```bash
+            curl -fsSLO https://github.com/meawoppl/affogato/releases/download/${{ needs.version.outputs.tag }}/affogato_${{ needs.version.outputs.semver }}-1_amd64.deb
+            sudo dpkg -i affogato_${{ needs.version.outputs.semver }}-1_amd64.deb
+            ```
           files: release/*
           draft: false
           prerelease: false
