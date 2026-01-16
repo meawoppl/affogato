@@ -216,6 +216,58 @@ impl Docker {
         Ok(format!("{}{}", stdout, stderr))
     }
 
+    /// Run command in container with project and extra mount options
+    pub fn run_in_project_with_extra_mounts(
+        &self,
+        project: &Project,
+        cmd: &[&str],
+        extra_mounts: &[&str],
+        usb: bool,
+    ) -> Result<()> {
+        let project_root = project
+            .root
+            .as_ref()
+            .context("Not in an Affogato project")?;
+
+        let mut args = vec![
+            "run".to_string(),
+            "--rm".to_string(),
+            "-it".to_string(),
+            "-v".to_string(),
+            format!("{}:/workspace", project_root.display()),
+            "-w".to_string(),
+            "/workspace".to_string(),
+        ];
+
+        // Add extra mounts
+        for mount in extra_mounts {
+            args.push(mount.to_string());
+        }
+
+        if usb {
+            args.push("--device=/dev/ttyACM0".to_string());
+            args.push("--privileged".to_string());
+        }
+
+        args.push(self.image.clone());
+        args.extend(cmd.iter().map(|s| s.to_string()));
+
+        if self.verbose {
+            println!("{}", format!("docker {}", args.join(" ")).dimmed());
+        }
+
+        let status = Command::new("docker")
+            .args(&args)
+            .status()
+            .context("Failed to run docker")?;
+
+        if !status.success() {
+            bail!("Command failed with exit code: {:?}", status.code());
+        }
+
+        Ok(())
+    }
+
     /// Run command in container without project
     pub fn run_standalone(&self, cmd: &[&str], usb: bool) -> Result<()> {
         let cwd = std::env::current_dir()?;

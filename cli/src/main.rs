@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use colored::Colorize;
 
 mod config;
+mod demo;
 mod docker;
 mod project;
 mod test;
@@ -125,6 +126,24 @@ enum Commands {
     Docker {
         #[command(subcommand)]
         command: DockerCommands,
+    },
+
+    /// Run a demo project
+    Demo {
+        /// Demo name (colorwheel, web-led). Omit to list available demos.
+        name: Option<String>,
+
+        /// Serial port
+        #[arg(short, long, default_value = "/dev/ttyACM0")]
+        port: String,
+
+        /// Build only, don't flash
+        #[arg(long)]
+        build_only: bool,
+
+        /// List available demos
+        #[arg(short, long)]
+        list: bool,
     },
 }
 
@@ -277,6 +296,19 @@ fn main() -> Result<()> {
                 docker.info()?;
             }
         },
+
+        Commands::Demo {
+            name,
+            port,
+            build_only,
+            list,
+        } => {
+            if list || name.is_none() {
+                demo::list_demos();
+            } else {
+                demo::run_demo(&docker, name.as_deref().unwrap(), &port, build_only, false)?;
+            }
+        }
     }
 
     Ok(())
