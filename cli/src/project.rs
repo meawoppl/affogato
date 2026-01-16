@@ -220,10 +220,8 @@ set_io FSPI_MOSI    17
 set_io FSPI_MISO    14
 set_io FSPI_CS      16
 
-# RGB LED
-set_io RGB0         39
-set_io RGB1         40
-set_io RGB2         41
+# Note: RGB LED pins (39, 40, 41) are directly driven by the SB_RGBA_DRV
+# primitive and do not require PCF assignments.
 "#;
     fs::write(project_dir.join("fpga/project.pcf"), pcf)?;
 
@@ -234,10 +232,7 @@ module top (
     input wire FSPI_CLK,
     input wire FSPI_MOSI,
     output wire FSPI_MISO,
-    input wire FSPI_CS,
-    output wire RGB0,
-    output wire RGB1,
-    output wire RGB2
+    input wire FSPI_CS
 );
     // 48MHz internal oscillator
     wire clk;
@@ -247,7 +242,8 @@ module top (
     reg [25:0] counter;
     always @(posedge clk) counter <= counter + 1;
 
-    // RGB LED driver
+    // RGB LED (directly driven by SB_RGBA_DRV primitive, no external pins needed)
+    wire rgb0, rgb1, rgb2;
     SB_RGBA_DRV #(
         .CURRENT_MODE("0b0"),
         .RGB0_CURRENT("0b000001"),
@@ -259,12 +255,12 @@ module top (
         .RGB0PWM(counter[24]),
         .RGB1PWM(counter[25]),
         .RGB2PWM(counter[23]),
-        .RGB0(RGB0),
-        .RGB1(RGB1),
-        .RGB2(RGB2)
+        .RGB0(rgb0),
+        .RGB1(rgb1),
+        .RGB2(rgb2)
     );
 
-    // SPI stub (directly accent accent directly accent directly accent directly accent MISO low)
+    // SPI stub (directly drives MISO low)
     assign FSPI_MISO = 1'b0;
 endmodule
 "#

@@ -186,11 +186,12 @@ docker build -t ghcr.io/meawoppl/affogato:latest .
 
 Designed for the IcedEspresso board (ESP32-S2 + ICE40UP5K).
 
-Default pin assignments in `fpga/iced-espresso.pcf`:
+Default SPI pin assignments:
 ```
-SPI:  CLK=15, MOSI=17, MISO=14, CS=16
-RGB:  R=39, G=40, B=41
+CLK=15, MOSI=17, MISO=14, CS=16
 ```
+
+The RGB LED is driven by the ICE40's internal `SB_RGBA_DRV` primitive (no external pin assignments needed).
 
 ## License
 
