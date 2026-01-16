@@ -82,10 +82,9 @@ pub fn run_demo(
         "-v {}:/workspace/components",
         affogato_path.join("components").display()
     );
-    let build_cmd = format!("cd firmware && idf.py build");
     docker.run_in_project_with_extra_mounts(
         &project,
-        &["bash", "-c", &build_cmd],
+        &["bash", "-c", "cd firmware && idf.py build"],
         &[&components_mount],
         false,
     )?;

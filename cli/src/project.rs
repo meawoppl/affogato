@@ -1,10 +1,11 @@
 use anyhow::{bail, Result};
 use colored::Colorize;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub struct Project {
     pub root: Option<PathBuf>,
+    #[allow(dead_code)]
     pub name: Option<String>,
 }
 
@@ -114,7 +115,7 @@ pub fn init_current(_template: &str) -> Result<()> {
     Ok(())
 }
 
-fn write_firmware_files(project_dir: &PathBuf, name: &str) -> Result<()> {
+fn write_firmware_files(project_dir: &Path, name: &str) -> Result<()> {
     // CMakeLists.txt
     let cmake = format!(
         r#"cmake_minimum_required(VERSION 3.16)
@@ -181,7 +182,7 @@ CONFIG_LOG_COLORS=y
     Ok(())
 }
 
-fn write_fpga_files(project_dir: &PathBuf, name: &str) -> Result<()> {
+fn write_fpga_files(project_dir: &Path, name: &str) -> Result<()> {
     // Makefile
     let makefile = r#"TARGET = top
 PCF_FILE = project.pcf
@@ -270,7 +271,7 @@ endmodule
     Ok(())
 }
 
-fn write_project_makefile(project_dir: &PathBuf, name: &str) -> Result<()> {
+fn write_project_makefile(project_dir: &Path, name: &str) -> Result<()> {
     let makefile = format!(
         r#"# {name} - Project Makefile
 # Use 'affogato' CLI for better experience

@@ -119,7 +119,7 @@ impl Docker {
 
             if output.status.success() {
                 let info = String::from_utf8_lossy(&output.stdout);
-                let parts: Vec<&str> = info.trim().split_whitespace().collect();
+                let parts: Vec<&str> = info.split_whitespace().collect();
                 if parts.len() >= 3 {
                     println!("  ID: {}", &parts[0][7..19]); // Short ID
                     let size: u64 = parts[1].parse().unwrap_or(0);

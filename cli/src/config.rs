@@ -1,3 +1,6 @@
+// Config module for future use (user settings, project config, etc.)
+#![allow(dead_code)]
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
