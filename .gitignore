@@ -39,3 +39,6 @@ Thumbs.db
 # Environment files with secrets
 .env
 *.env.local
+
+# External reference repos
+external_ref/
