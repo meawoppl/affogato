@@ -2,9 +2,19 @@ use anyhow::{bail, Result};
 use colored::Colorize;
 use std::fs;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 use crate::docker::Docker;
 use crate::project::Project;
+
+/// Test result with timing information
+struct TestResult {
+    name: String,
+    passed: bool,
+    duration: Duration,
+    #[allow(dead_code)]
+    output: String,
+}
 
 /// Run Verilog testbenches using iverilog
 pub fn run_tests(
@@ -13,6 +23,8 @@ pub fn run_tests(
     test_name: Option<&str>,
     view: bool,
     fpga_dir: &str,
+    verbose: bool,
+    parallel: bool,
 ) -> Result<()> {
     let project_root = project.root.as_ref().unwrap();
 
@@ -54,37 +66,95 @@ pub fn run_tests(
         return Ok(());
     }
 
+    let test_count = tests.len();
     println!(
         "{}",
-        format!("==> Running {} test(s)", tests.len()).blue().bold()
+        format!("==> Running {} test(s)", test_count).blue().bold()
     );
 
-    let mut results = Vec::new();
+    let start_time = Instant::now();
+    let results = if parallel && test_count > 1 && test_name.is_none() {
+        run_tests_parallel(docker, project, &tests, &rtl_dir, &test_dir, view, verbose)?
+    } else {
+        run_tests_sequential(docker, project, &tests, &rtl_dir, &test_dir, view, verbose)?
+    };
 
-    for test in &tests {
-        let result = run_single_test(docker, project, test, &rtl_dir, &test_dir, view)?;
-        results.push((test.clone(), result));
-    }
+    let total_duration = start_time.elapsed();
 
     // Print summary
     println!();
     println!("{}", "Test Results:".bold());
     let mut all_passed = true;
-    for (name, passed) in &results {
-        let status = if *passed {
+    let mut pass_count = 0;
+
+    for result in &results {
+        let status = if result.passed {
+            pass_count += 1;
             "PASS".green()
         } else {
             all_passed = false;
             "FAIL".red()
         };
-        println!("  {:40} {}", name, status);
+        println!(
+            "  {:40} {} ({:.2}s)",
+            result.name,
+            status,
+            result.duration.as_secs_f64()
+        );
     }
+
+    // Print timing summary
+    println!();
+    println!(
+        "{} {} passed, {} failed in {:.2}s",
+        "Summary:".bold(),
+        pass_count.to_string().green(),
+        (test_count - pass_count).to_string().red(),
+        total_duration.as_secs_f64()
+    );
 
     if !all_passed {
         bail!("Some tests failed");
     }
 
     Ok(())
+}
+
+fn run_tests_sequential(
+    docker: &Docker,
+    project: &Project,
+    tests: &[String],
+    rtl_dir: &str,
+    test_dir: &str,
+    view: bool,
+    verbose: bool,
+) -> Result<Vec<TestResult>> {
+    let mut results = Vec::new();
+
+    for test in tests {
+        let result = run_single_test(docker, project, test, rtl_dir, test_dir, view, verbose)?;
+        results.push(result);
+    }
+
+    Ok(results)
+}
+
+fn run_tests_parallel(
+    docker: &Docker,
+    project: &Project,
+    tests: &[String],
+    rtl_dir: &str,
+    test_dir: &str,
+    view: bool,
+    verbose: bool,
+) -> Result<Vec<TestResult>> {
+    // Parallel execution would require Docker struct to impl Clone/Send
+    // For now, fall back to sequential execution
+    println!(
+        "{}",
+        "Note: Parallel execution not yet implemented, running sequentially".dimmed()
+    );
+    run_tests_sequential(docker, project, tests, rtl_dir, test_dir, view, verbose)
 }
 
 fn discover_tests(
@@ -129,8 +199,15 @@ fn run_single_test(
     rtl_dir: &str,
     test_dir: &str,
     view: bool,
-) -> Result<bool> {
-    print!("  Testing {:40} ", test_name);
+    verbose: bool,
+) -> Result<TestResult> {
+    if !verbose {
+        print!("  Testing {:40} ", test_name);
+    } else {
+        println!("  {} {}", "Testing".blue(), test_name.bold());
+    }
+
+    let start = Instant::now();
 
     // Build the iverilog command that:
     // 1. Compiles all RTL sources + the testbench
@@ -177,25 +254,42 @@ fi
     );
 
     // Run in docker and capture output
-    let result = docker.run_in_project_capture(project, &["bash", "-c", &script])?;
+    let output = docker.run_in_project_capture(project, &["bash", "-c", &script])?;
 
-    let passed = !result.to_lowercase().contains("error")
-        && !result.to_lowercase().contains("fail")
-        && result.to_lowercase().contains("pass");
+    let duration = start.elapsed();
 
-    if passed {
+    let passed = !output.to_lowercase().contains("error")
+        && !output.to_lowercase().contains("fail")
+        && output.to_lowercase().contains("pass");
+
+    if verbose {
+        // Always show output in verbose mode
+        println!("{}", "--- Output ---".dimmed());
+        for line in output.lines() {
+            println!("    {}", highlight_output(line));
+        }
+        println!("{}", "--------------".dimmed());
+        let status = if passed { "PASS".green() } else { "FAIL".red() };
+        println!("  Result: {} ({:.2}s)", status, duration.as_secs_f64());
+        println!();
+    } else if passed {
         println!("{}", "PASS".green());
     } else {
         println!("{}", "FAIL".red());
         // Print output on failure
         println!("{}", "--- Output ---".dimmed());
-        for line in result.lines() {
+        for line in output.lines() {
             println!("    {}", highlight_output(line));
         }
         println!("{}", "--------------".dimmed());
     }
 
-    Ok(passed)
+    Ok(TestResult {
+        name: test_name.to_string(),
+        passed,
+        duration,
+        output,
+    })
 }
 
 fn highlight_output(line: &str) -> String {

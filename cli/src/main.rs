@@ -97,6 +97,14 @@ enum Commands {
         /// FPGA directory (default: fpga)
         #[arg(long, default_value = "fpga")]
         dir: String,
+
+        /// Show verbose output for all tests
+        #[arg(short, long)]
+        verbose: bool,
+
+        /// Run tests in parallel (experimental)
+        #[arg(long)]
+        parallel: bool,
     },
 
     /// Lint Verilog files
@@ -239,11 +247,25 @@ fn main() -> Result<()> {
             docker.run_in_project(&project, &["bash", "-c", &cmd], &[], true)?;
         }
 
-        Commands::Test { name, view, dir } => {
+        Commands::Test {
+            name,
+            view,
+            dir,
+            verbose,
+            parallel,
+        } => {
             project.require_project()?;
             docker.ensure_image()?;
 
-            test::run_tests(&docker, &project, name.as_deref(), view, &dir)?;
+            test::run_tests(
+                &docker,
+                &project,
+                name.as_deref(),
+                view,
+                &dir,
+                verbose,
+                parallel,
+            )?;
         }
 
         Commands::Lint { dir } => {
