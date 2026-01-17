@@ -184,14 +184,19 @@ docker build -t ghcr.io/meawoppl/affogato:latest .
 
 ## Hardware
 
-Designed for the IcedEspresso board (ESP32-S2 + ICE40UP5K).
+Designed for the [IcedEspresso board](https://www.hackster.io/news/the-iced-espresso-is-a-cool-refreshing-approach-to-working-with-two-of-our-favorite-chips-6ca50670b175) (ESP32-S2 + ICE40UP5K).
 
-Default SPI pin assignments:
+Default QSPI pin assignments for FPGA loading:
 ```
-CLK=15, MOSI=17, MISO=14, CS=16
+SCLK=12, MOSI=11, MISO=13, CS=10, WP=14, HD=9
+CRESET=36, CDONE=37
 ```
 
 The RGB LED is driven by the ICE40's internal `SB_RGBA_DRV` primitive (no external pin assignments needed).
+
+## Acknowledgments
+
+Thanks to [BlinkinLabs](https://blinkinlabs.com/) and [@cibomahto](https://x.com/cibomahto/status/1423609225503297537) for the IcedEspresso board design that inspired this project.
 
 ## License
 
