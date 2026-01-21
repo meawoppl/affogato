@@ -32,7 +32,7 @@ RUN pip3 install --no-cache-dir cmake
 
 # Yosys (synthesis) - pinned version for reproducibility
 ARG YOSYS_VERSION=0.44
-RUN git clone --depth=1 -b yosys-${YOSYS_VERSION} https://github.com/YosysHQ/yosys.git /tmp/yosys && \
+RUN git clone -b yosys-${YOSYS_VERSION} --recursive https://github.com/YosysHQ/yosys.git /tmp/yosys && \
     cd /tmp/yosys && \
     make config-clang && \
     make -j$(nproc) && \
