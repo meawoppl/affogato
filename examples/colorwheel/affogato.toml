@@ -1,0 +1,8 @@
+[project]
+name = "colorwheel"
+
+[fpga]
+device = "up5k"
+package = "sg48"
+top = "top"
+pcf = "fpga/project.pcf"

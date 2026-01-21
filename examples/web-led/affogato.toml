@@ -1,0 +1,8 @@
+[project]
+name = "web-led"
+
+[fpga]
+device = "up5k"
+package = "sg48"
+top = "top"
+pcf = "fpga/project.pcf"

@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip3 install --no-cache-dir cmake
 
 # Yosys (synthesis) - pinned version for reproducibility
-ARG YOSYS_VERSION=0.47
+ARG YOSYS_VERSION=0.44
 RUN git clone --depth=1 -b yosys-${YOSYS_VERSION} https://github.com/YosysHQ/yosys.git /tmp/yosys && \
     cd /tmp/yosys && \
     make config-clang && \

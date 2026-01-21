@@ -3,8 +3,9 @@ use colored::Colorize;
 use std::fs;
 use std::path::PathBuf;
 
+use crate::build::build_fpga_with_config;
 use crate::docker::Docker;
-use crate::project::Project;
+use crate::project::{Project, ProjectConfig};
 
 /// Available demos
 const DEMOS: &[(&str, &str)] = &[
@@ -64,17 +65,22 @@ pub fn run_demo(
         copy_dir_recursive(&demo_src, &dest)?;
     }
 
+    // Load project config from the demo's affogato.toml
+    let dest_canonical = dest.canonicalize()?;
+    let config = ProjectConfig::load(&dest_canonical)?;
+
     // Create a project context for the demo directory
     let project = Project {
-        root: Some(dest.canonicalize()?),
+        root: Some(dest_canonical),
         name: Some(name.to_string()),
+        config: Some(config.clone()),
     };
 
     docker.ensure_image()?;
 
     // Build the demo
     println!("{}", "==> Building FPGA bitstream".blue().bold());
-    docker.run_in_project(&project, &["make", "-C", "fpga"], &[], false)?;
+    build_fpga_with_config(docker, &project, &config)?;
 
     println!("{}", "==> Building ESP32 firmware".blue().bold());
     // Mount components from the affogato repo
