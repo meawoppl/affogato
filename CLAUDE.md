@@ -7,6 +7,10 @@
 - CI must pass before merging
 - Use `gh pr checks <PR#> --watch` to wait for CI results
 
+## Shorthand Commands
+
+- **SHIP**: When I say "SHIP" referring to a PR, watch it until all checks pass, then squash and merge it
+
 ## Rust Development
 
 - Run `cargo fmt` before committing
