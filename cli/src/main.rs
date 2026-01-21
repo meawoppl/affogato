@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 
+mod build;
 mod config;
 mod demo;
 mod docker;
@@ -9,6 +10,7 @@ mod project;
 mod test;
 mod watch;
 
+use build::build_fpga;
 use docker::Docker;
 use project::Project;
 
@@ -195,7 +197,7 @@ fn main() -> Result<()> {
             docker.ensure_image()?;
 
             println!("{}", "==> Building FPGA bitstream".blue().bold());
-            docker.run_in_project(&project, &["make", "-C", "fpga"], &args, false)?;
+            build_fpga(&docker, &project, &args)?;
         }
 
         Commands::Build { args } => {
@@ -204,7 +206,7 @@ fn main() -> Result<()> {
 
             // Build FPGA first
             println!("{}", "==> Building FPGA bitstream".blue().bold());
-            docker.run_in_project(&project, &["make", "-C", "fpga"], &[], false)?;
+            build_fpga(&docker, &project, &[])?;
 
             // Then build firmware
             println!("{}", "==> Building ESP32 firmware".blue().bold());

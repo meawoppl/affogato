@@ -1,12 +1,91 @@
 use anyhow::{bail, Result};
 use colored::Colorize;
+use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+/// Project configuration from affogato.toml
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ProjectConfig {
+    #[serde(default)]
+    pub project: ProjectSection,
+    #[serde(default)]
+    pub fpga: FpgaConfig,
+    #[allow(dead_code)]
+    #[serde(default)]
+    pub firmware: FirmwareConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ProjectSection {
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FpgaConfig {
+    #[serde(default = "default_device")]
+    pub device: String,
+    #[serde(default = "default_package")]
+    pub package: String,
+    #[serde(default = "default_top")]
+    pub top: String,
+    #[serde(default)]
+    pub pcf: Option<String>,
+    /// Additional Verilog files/directories to include
+    #[serde(default)]
+    pub include: Vec<String>,
+}
+
+fn default_device() -> String {
+    "up5k".to_string()
+}
+
+fn default_package() -> String {
+    "sg48".to_string()
+}
+
+fn default_top() -> String {
+    "top".to_string()
+}
+
+impl Default for FpgaConfig {
+    fn default() -> Self {
+        Self {
+            device: default_device(),
+            package: default_package(),
+            top: default_top(),
+            pcf: None,
+            include: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct FirmwareConfig {
+    #[allow(dead_code)]
+    #[serde(default)]
+    pub project_name: Option<String>,
+}
+
+impl ProjectConfig {
+    /// Load project config from affogato.toml
+    pub fn load(project_root: &Path) -> Result<Self> {
+        let config_path = project_root.join("affogato.toml");
+        if config_path.exists() {
+            let content = fs::read_to_string(&config_path)?;
+            Ok(toml::from_str(&content)?)
+        } else {
+            Ok(Self::default())
+        }
+    }
+}
 
 pub struct Project {
     pub root: Option<PathBuf>,
     #[allow(dead_code)]
     pub name: Option<String>,
+    pub config: Option<ProjectConfig>,
 }
 
 impl Project {
@@ -14,17 +93,39 @@ impl Project {
     pub fn detect() -> Result<Self> {
         let cwd = std::env::current_dir()?;
 
-        // Look for project markers
-        let markers = ["firmware/CMakeLists.txt", "fpga/Makefile"];
-
         let mut dir = cwd.clone();
         loop {
-            let is_project = markers.iter().all(|m| dir.join(m).exists());
-            if is_project {
-                let name = dir.file_name().map(|n| n.to_string_lossy().to_string());
+            // Check for affogato.toml (new style)
+            if dir.join("affogato.toml").exists() {
+                let config = ProjectConfig::load(&dir)?;
+                let name = config
+                    .project
+                    .name
+                    .clone()
+                    .or_else(|| dir.file_name().map(|n| n.to_string_lossy().to_string()));
                 return Ok(Self {
                     root: Some(dir),
                     name,
+                    config: Some(config),
+                });
+            }
+
+            // Check for legacy markers (firmware/CMakeLists.txt + fpga/ directory)
+            // No longer requires fpga/Makefile
+            let has_firmware = dir.join("firmware/CMakeLists.txt").exists();
+            let has_fpga = dir.join("fpga").is_dir();
+            if has_firmware && has_fpga {
+                let name = dir.file_name().map(|n| n.to_string_lossy().to_string());
+                // Try to load config if it exists
+                let config = if dir.join("affogato.toml").exists() {
+                    Some(ProjectConfig::load(&dir)?)
+                } else {
+                    None
+                };
+                return Ok(Self {
+                    root: Some(dir),
+                    name,
+                    config,
                 });
             }
 
@@ -36,6 +137,7 @@ impl Project {
         Ok(Self {
             root: None,
             name: None,
+            config: None,
         })
     }
 
@@ -66,14 +168,14 @@ pub fn create_new(name: &str, _template: &str) -> Result<()> {
     fs::create_dir_all(project_dir.join("firmware/main"))?;
     fs::create_dir_all(project_dir.join("fpga/rtl"))?;
 
+    // Write affogato.toml
+    write_affogato_toml(&project_dir, name)?;
+
     // Write firmware files
     write_firmware_files(&project_dir, name)?;
 
     // Write FPGA files
     write_fpga_files(&project_dir, name)?;
-
-    // Write project Makefile (for legacy compatibility)
-    write_project_makefile(&project_dir, name)?;
 
     println!("{}", "Project created successfully!".green());
     println!();
@@ -106,9 +208,9 @@ pub fn init_current(_template: &str) -> Result<()> {
     fs::create_dir_all(cwd.join("firmware/main"))?;
     fs::create_dir_all(cwd.join("fpga/rtl"))?;
 
+    write_affogato_toml(&cwd, &name)?;
     write_firmware_files(&cwd, &name)?;
     write_fpga_files(&cwd, &name)?;
-    write_project_makefile(&cwd, &name)?;
 
     println!("{}", "Project initialized!".green());
 
@@ -182,38 +284,23 @@ CONFIG_LOG_COLORS=y
     Ok(())
 }
 
+fn write_affogato_toml(project_dir: &Path, name: &str) -> Result<()> {
+    let toml_content = format!(
+        r#"[project]
+name = "{name}"
+
+[fpga]
+device = "up5k"
+package = "sg48"
+top = "top"
+pcf = "fpga/project.pcf"
+"#
+    );
+    fs::write(project_dir.join("affogato.toml"), toml_content)?;
+    Ok(())
+}
+
 fn write_fpga_files(project_dir: &Path, name: &str) -> Result<()> {
-    // Makefile
-    let makefile = r#"TARGET = top
-PCF_FILE = project.pcf
-VERILOG_FILES = rtl/top.v
-
-# Docker image
-DOCKER_IMAGE ?= ghcr.io/meawoppl/affogato:latest
-DOCKER_RUN = docker run --rm -v $(CURDIR):/work -w /work $(DOCKER_IMAGE)
-
-.PHONY: all clean
-
-all: $(TARGET).bin
-
-$(TARGET).json: $(VERILOG_FILES)
-	$(DOCKER_RUN) yosys -q \
-		-p "synth_ice40 -abc2 -relut -top $(TARGET) -json $@" \
-		$(VERILOG_FILES)
-
-$(TARGET).asc: $(TARGET).json $(PCF_FILE)
-	$(DOCKER_RUN) nextpnr-ice40 \
-		--up5k --package sg48 \
-		--json $< --pcf $(PCF_FILE) --asc $@
-
-$(TARGET).bin: $(TARGET).asc
-	$(DOCKER_RUN) icepack $< $@
-
-clean:
-	rm -f $(TARGET).json $(TARGET).asc $(TARGET).bin
-"#;
-    fs::write(project_dir.join("fpga/Makefile"), makefile)?;
-
     // project.pcf
     let pcf = r#"# SPI Interface to ESP32-S2
 set_io FSPI_CLK     15
@@ -267,40 +354,6 @@ endmodule
 "#
     );
     fs::write(project_dir.join("fpga/rtl/top.v"), top_v)?;
-
-    Ok(())
-}
-
-fn write_project_makefile(project_dir: &Path, name: &str) -> Result<()> {
-    let makefile = format!(
-        r#"# {name} - Project Makefile
-# Use 'affogato' CLI for better experience
-
-DOCKER_IMAGE ?= ghcr.io/meawoppl/affogato:latest
-DOCKER_RUN = docker run --rm -v $(CURDIR):/workspace -w /workspace $(DOCKER_IMAGE)
-DOCKER_RUN_USB = docker run --rm -v $(CURDIR):/workspace -w /workspace --device /dev/ttyACM0 --privileged $(DOCKER_IMAGE)
-PORT ?= /dev/ttyACM0
-
-.PHONY: build-fpga build flash monitor clean
-
-build-fpga:
-	$(MAKE) -C fpga
-
-build: build-fpga
-	$(DOCKER_RUN) bash -c "cd firmware && idf.py build"
-
-flash:
-	$(DOCKER_RUN_USB) bash -c "cd firmware && idf.py -p $(PORT) flash"
-
-monitor:
-	$(DOCKER_RUN_USB) bash -c "cd firmware && idf.py -p $(PORT) monitor"
-
-clean:
-	$(MAKE) -C fpga clean
-	$(DOCKER_RUN) bash -c "cd firmware && idf.py clean"
-"#
-    );
-    fs::write(project_dir.join("Makefile"), makefile)?;
 
     Ok(())
 }
