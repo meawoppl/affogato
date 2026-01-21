@@ -150,7 +150,6 @@ impl Docker {
         let mut args = vec![
             "run".to_string(),
             "--rm".to_string(),
-            "-it".to_string(),
             "-v".to_string(),
             format!("{}:/workspace", project_root.display()),
             "-w".to_string(),
@@ -232,7 +231,6 @@ impl Docker {
         let mut args = vec![
             "run".to_string(),
             "--rm".to_string(),
-            "-it".to_string(),
             "-v".to_string(),
             format!("{}:/workspace", project_root.display()),
             "-w".to_string(),
