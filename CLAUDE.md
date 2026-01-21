@@ -5,6 +5,7 @@
 - Always develop on branches, never commit directly to main
 - Create PRs for all changes
 - CI must pass before merging
+- Use `gh pr checks <PR#> --watch` to wait for CI results
 
 ## Rust Development
 
