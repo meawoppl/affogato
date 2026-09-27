@@ -154,7 +154,7 @@ jobs:
         run: git push origin :refs/tags/${{ needs.version.outputs.tag }} 2>/dev/null || true
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.version.outputs.tag }}
           name: "Release ${{ needs.version.outputs.version }}"
